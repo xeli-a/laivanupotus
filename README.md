@@ -1,0 +1,2 @@
+# laivanupotus
+Python kurssin harjoitustyö
