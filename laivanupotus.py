@@ -1,9 +1,10 @@
 # Konsolipohjainen laivanupotuspeli
-from random import *
+from random import randint
 import copy
 import os
+from contextlib import redirect_stdout
 
-def clear_console():
+def clear_console() -> None:
     # Tyhjentää konsolin vanhoista tulosteista käyttöjärjestelmästä riippumatta
     if os.name == "posix":
         os.system("clear")
@@ -25,6 +26,15 @@ def luo_pelilauta() -> dict[int, dict[str, str]]:
     }
     return pelilauta
 
+def saannot() -> None:
+    # funtio pelin sääntöjen esittämiseen
+    print("Laivanupotus: Pelaat tietokonetta vastaan. \n\nMolemmat sijoittaa aluksi viisi (5) laivaa.")
+    print("Tämän jälkeen alkaa itse peli. \n\nAmmut ensin tietokoneen pelilaudalle ja sen jälkeen tietokoneella on tasoittava vuoro.")
+    print("Sijoita laivat ja ammu muodossa: kirjain A-E ja numero 1-5. Esim B5. \nVääristä syötteistä ei menetä vuoroa.")
+    print("\nPeliä pelataan kunnes ainakin toinen on upottanut vastustajansa laivat.")
+    print("Pelin lopuksi voit halutessasi tallentaa pelin nimeämääsi tiedostoon.")
+    input("\nPaina Enter päästäksesi eteenpäin.")
+
 def tietokoneen_laivojen_sijainti(pelilauta: dict[int, dict[str, str]]) -> dict[int, dict[str, str]]:
     # arpoo 5 tietokoneen laivaa ja sijoittaa ne pelilaudalle
     i = 0
@@ -41,7 +51,7 @@ def tietokoneen_laivojen_sijainti(pelilauta: dict[int, dict[str, str]]) -> dict[
 
 def keraa_laivojen_sijainnit(pelilauta: dict[int, dict[str, str]]) -> dict[int, dict[str, str]]:
     """
-    funtio pelaajan laivojen sijoittamiseen
+    funktio pelaajan laivojen sijoittamiseen
 
     ottaa parametrinä pelaajan pelilaudan
     ottaa vastaan syötteenä koordinaatit laivoille
@@ -114,7 +124,7 @@ def laivojen_maara(pelilauta: dict[int, dict[str, str]]) -> int:
                 laivat += 1
     return laivat
 
-def pelitilanne(pelaaja: dict[int, dict[str, str]], tietokone: dict[int, dict[str, str]]) -> None:
+def pelitilanne(pelaaja: dict[int, dict[str, str]], tietokone: dict[int, dict[str, str]], pel_laivat: int, com_laivat: int) -> None:
     """
     funktio tämänhetkisen pelitilanteen tulostamiseen
     
@@ -125,10 +135,12 @@ def pelitilanne(pelaaja: dict[int, dict[str, str]], tietokone: dict[int, dict[st
     """
     print("Sinun pelilautasi:")
     tulosta_pelilauta(pelaaja)
+    print(f"Sinun laivoja jäljellä: {pel_laivat}")
     print("\nVastustajan pelilauta:")
     tietokone_display = copy.deepcopy(tietokone)
     com_tuloste = peita_tietokoneen_laivat(tietokone_display)
     tulosta_pelilauta(com_tuloste)
+    print(f"Tietokoneen laivoja jäljellä: {com_laivat}\n")
 
 def tulosta_pelilauta(pelilauta: dict[dict[str, str]]) -> None:
     """
@@ -138,7 +150,7 @@ def tulosta_pelilauta(pelilauta: dict[dict[str, str]]) -> None:
     """
     print("  _A__B__C__D__E_")
     for rivinumero, sarake in pelilauta.items():
-        print(f"{rivinumero}| " + "  ".join(sarake[kirjain] for kirjain in sarake) + " |")
+        print(f"{rivinumero}| " + "  ".join(sarake[arvo] for arvo in sarake) + " |")
     print(" ¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯")
 
 def peita_tietokoneen_laivat(pelilauta: dict[int, dict[str, str]]) -> dict[int, dict[str, str]]:
@@ -210,53 +222,83 @@ def tietokoneen_ampumakohde(pelilauta: dict[int, dict[str, str]]) -> dict[int, d
         else:
             continue
 
+def pelin_tallennus(kierros: int, pel: dict[int, dict[str, str]], com: dict[int, dict[str, str]], pel_laivat: int, com_laivat: int) -> None:
+    """
+    ottaa parametrina vastaan pelitilanne funktion vaatimat parametrit
+    ottaa vastaan ja tarkistaa pelaajan antaman tiedostonimen pelin tallennukselle
+    käsittelee poikkeukset
+    kirjoittaa pelin tiedostoon utf-8 koodauksella, jotta ääkköset ja yläviivat näkyvät oikein
+    koska pelitilanne funktio ei palauta mitään, käytetään tiedostoon kirjoituksessa redirect_stdout context manageria
+    """
+    while True:
+        tiedostonimi = input("Anna tallennustiedoston nimi ilman tiedostomuotoa. ")
+        if "." in tiedostonimi:
+            continue
+        elif len(tiedostonimi) >= 3 and tiedostonimi.isalnum():
+            try:
+                tiedostopolku = os.path.dirname(__file__)
+                tiedostonimi = tiedostopolku +"/"+ tiedostonimi + ".txt"
+                with open(tiedostonimi, "w", encoding="utf-8")as file:
+                    file.write(f"Kierros {kierros}\n\n")
+                    with redirect_stdout(file):
+                        pelitilanne(pel, com, pel_laivat, com_laivat)
+                    print(f"Peli tallennettu tiedostoon {tiedostonimi}")
+            except PermissionError:
+                print(f"Ei käyttöoikeuksia kansioon {tiedostopolku}")
+            except Exception as e:
+                print(f"Jokin meni pieleen tallennuksessa. Error: {e}")
+        else:
+            continue
+        break
+
 def main():
     """
     pääohjelma:
 
     tyhjentää aluksi terminaalin, jotta peli näkyy halutulla tavalla
-
     luo pelaajalle ja tietokoneelle pelilaudat
-
     kerää laivojen sijainnit käyttäen tietokoneen_laivojen_sijainti ja keraa_laivojen_sijainti -funktioita
-
     laskee laivojen määrän ja lopettaa pelin jos ainakin toiselta tuhotaan kaikki laivat
-
     joka kierroksen jälkeen tyhjentää konsolin
-
     käyttää pelitilanne funtiota näyttääkseen nykyisen tilanteen
-
     kysyy joka kierroksella pelaajalta ampumakoordinaatin käyttäen kysy_ampumakohde funktiota
-
     arpoo tietokoneen ampumakohteen käyttäen tietokoneen_ampumakohde funktiota
-
-    pelin päätyttyä tuloste muuttuu lopputuloksen mukaan
+    pelin päätyttyä tuloste muuttuu lopputuloksen mukaan sekä tallentaa pelin pelaajan halun mukaan pelaajan nimeämään tiedostoon
     """
     clear_console()
     kierros = 0
     pelaajan_pelilauta = luo_pelilauta()
     tietokoneen_pelilauta = luo_pelilauta()
+    saannot()
+    clear_console()
     tietokoneen_laivojen_sijainti(tietokoneen_pelilauta)
     keraa_laivojen_sijainnit(pelaajan_pelilauta)
-    clear_console()
     while True:
         com_laivojen_maara = laivojen_maara(tietokoneen_pelilauta)
         pel_laivojen_maara = laivojen_maara(pelaajan_pelilauta)
         kierros += 1
         print(f"Kierros {kierros}\n")
+        print("Selite:\n  ~ = Tyhjä/Tuntematon\n  L = Laiva\n  O = Osuma\n  X = Ammus meni ohi\n")
         if com_laivojen_maara == 0 or pel_laivojen_maara == 0:
-            if com_laivojen_maara == 0:
-                pelitilanne(pelaajan_pelilauta, tietokoneen_pelilauta)
-                print(f"Onnittelut! Voitit pelin! Sinulle jäi vielä {pel_laivojen_maara} laiva(a)!")
-            elif com_laivojen_maara == 0 and pel_laivojen_maara == 0:
-                pelitilanne(pelaajan_pelilauta, tietokoneen_pelilauta)
+            pelitilanne(pelaajan_pelilauta, tietokoneen_pelilauta, pel_laivojen_maara, com_laivojen_maara)
+            if com_laivojen_maara == 0 and pel_laivojen_maara == 0:
                 print("Tasapeli! Olipas tasainen peli!")
+            elif com_laivojen_maara == 0:
+                print(f"Onnittelut! Voitit pelin! Sinulle jäi vielä {pel_laivojen_maara} laiva(a)!")
             else:
-                pelitilanne(pelaajan_pelilauta, tietokoneen_pelilauta)
                 print(f"Hävisit pelin! Parempi onni ensi kerralla. Vastustajalle jäi vielä {com_laivojen_maara} laiva(a).")
+            while True:
+                tallennus = input("Haluatko tallentaa pelin? y/n ").lower()
+                if tallennus == "y":
+                    pelin_tallennus(kierros, pelaajan_pelilauta, tietokoneen_pelilauta, pel_laivojen_maara, com_laivojen_maara)
+                    break
+                elif tallennus == "n":
+                    break
+                else:
+                    continue
             break
         else:
-            pelitilanne(pelaajan_pelilauta, tietokoneen_pelilauta)
+            pelitilanne(pelaajan_pelilauta, tietokoneen_pelilauta, pel_laivojen_maara, com_laivojen_maara)
             kysy_ampumakohde(tietokoneen_pelilauta)
             tietokoneen_ampumakohde(pelaajan_pelilauta)
 
