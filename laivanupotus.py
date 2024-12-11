@@ -38,16 +38,15 @@ def saannot() -> None:
 def tietokoneen_laivojen_sijainti(pelilauta: dict[int, dict[str, str]]) -> dict[int, dict[str, str]]:
     # arpoo 5 tietokoneen laivaa ja sijoittaa ne pelilaudalle
     i = 0
+    sarake = ["A", "B", "C", "D", "E"]
     while i < 5:
         laivan_rivi = randint(1,5)
-        sarake = ["A", "B", "C", "D", "E"]
         sarake_index = randint(0,4)
         laivan_sarake = sarake[sarake_index]
         if pelilauta[laivan_rivi][laivan_sarake] == "~":
             pelilauta[laivan_rivi][laivan_sarake] = "L"
             i += 1
-        elif pelilauta[laivan_rivi][laivan_sarake] == "L":
-            continue
+    return pelilauta
 
 def keraa_laivojen_sijainnit(pelilauta: dict[int, dict[str, str]]) -> dict[int, dict[str, str]]:
     """
@@ -73,7 +72,7 @@ def keraa_laivojen_sijainnit(pelilauta: dict[int, dict[str, str]]) -> dict[int, 
                     pelilauta[laivan_rivi][laivan_sarake] = "L"
                     laivat += 1
                 else:
-                    print(f"Koordinaatti {laivan_sarake}{laivan_rivi} on jo varattu")
+                    print(f"Olet jo sijoittanut laivan koordinaattiin {laiva}.")
             elif tarkistus == "ei koordinaatistossa":
                 print(f"{laiva} ei ole koordinaatistossa.")
             elif tarkistus == "not ok":
@@ -95,17 +94,17 @@ def tarkista_syote(syote: str) -> str:
     palauttaa tarkistuksen tuloksen
     """
     try:
-        if len(syote) == 2:
-            rivi = int(syote[1])
-            sarake = syote[0]
-            if sarake in "ABCDE" and rivi >= 1 and rivi <= 5:
-                return "ok"
-            elif sarake.isalpha():
-                return "ei koordinaatistossa"
-            else:
-                return "not ok"
-        else:
+        if len(syote) != 2:
             return "not ok"
+        sarake = syote[0]
+        rivi = syote[1]
+        if not sarake.isalpha() or not rivi.isdigit():
+            return "not ok"
+        rivi = int(rivi)
+        if sarake in "ABCDE" and 1 <= rivi <= 5:
+            return "ok"
+        else:
+            return "ei koordinaatistossa"
     except Exception as e:
         return f"Jokin meni pieleen syötteessäsi. Error: {e}"
 
@@ -138,8 +137,8 @@ def pelitilanne(pelaaja: dict[int, dict[str, str]], tietokone: dict[int, dict[st
     print(f"Sinun laivoja jäljellä: {pel_laivat}")
     print("\nVastustajan pelilauta:")
     tietokone_display = copy.deepcopy(tietokone)
-    com_tuloste = peita_tietokoneen_laivat(tietokone_display)
-    tulosta_pelilauta(com_tuloste)
+    peita_tietokoneen_laivat(tietokone_display)
+    tulosta_pelilauta(tietokone_display)
     print(f"Tietokoneen laivoja jäljellä: {com_laivat}\n")
 
 def tulosta_pelilauta(pelilauta: dict[dict[str, str]]) -> None:
@@ -188,10 +187,10 @@ def kysy_ampumakohde(pelilauta: dict[int, list[str]]) -> dict[int, dict[str, str
                 elif pelilauta[rivi][sarake] == "L":
                     pelilauta[rivi][sarake] = "O"
                     clear_console()
-                    print("Osuma!")
+                    print(f"Osuma! Upotit laivan kohdassa {ammus}!")
                     return pelilauta
                 else:
-                    print("Olet jo ampunut tähän kohtaan.")
+                    print(f"Olet jo ampunut kohtaan {ammus}.")
             elif tarkistus == "ei koordinaatistossa":
                 print(f"{ammus} ei ole koordinaatistossa.")
             elif tarkistus == "not ok":
@@ -207,20 +206,19 @@ def tietokoneen_ampumakohde(pelilauta: dict[int, dict[str, str]]) -> dict[int, d
 
     muuttaa tietokoneen pelilautaa sen mukaan oliko koordinaatissa laiva vai ei
     """
-    i = 0
-    while i < 1:
-        laivan_rivi = randint(1,5)
-        sarake = ["A", "B", "C", "D", "E"]
-        sarake_index = randint(0,4)
-        laivan_sarake = sarake[sarake_index]
-        if pelilauta[laivan_rivi][laivan_sarake] == "~":
-            pelilauta[laivan_rivi][laivan_sarake] = "X"
-            i += 1
-        elif pelilauta[laivan_rivi][laivan_sarake] == "L":
-            pelilauta[laivan_rivi][laivan_sarake] = "O"
-            i += 1
-        else:
-            continue
+    sarakkeet = ["A", "B", "C", "D", "E"]
+    while True:
+        rivi = randint(1,5)
+        sarake = sarakkeet[randint(0,4)]
+        if pelilauta[rivi][sarake] == "~":
+            pelilauta[rivi][sarake] = "X"
+            print(f"Pelilautasi kohtaan {sarake}{rivi} ammuttiin!\n")
+            break
+        elif pelilauta[rivi][sarake] == "L":
+            pelilauta[rivi][sarake] = "O"
+            print(f"Laivasi kohdassa {sarake}{rivi} upposi!\n")
+            break
+    return pelilauta
 
 def pelin_tallennus(kierros: int, pel: dict[int, dict[str, str]], com: dict[int, dict[str, str]], pel_laivat: int, com_laivat: int) -> None:
     """
@@ -231,25 +229,26 @@ def pelin_tallennus(kierros: int, pel: dict[int, dict[str, str]], com: dict[int,
     koska pelitilanne funktio ei palauta mitään, käytetään tiedostoon kirjoituksessa redirect_stdout context manageria
     """
     while True:
-        tiedostonimi = input("Anna tallennustiedoston nimi ilman tiedostomuotoa. ")
-        if "." in tiedostonimi:
+        tiedostonimi = input("Anna tallennustiedoston nimi ilman tiedostopäätettä. ")
+        if not tiedostonimi.isalnum():
+            print("Tiedostonimen tulee olla vain kirjaimia ja numeroita.")
             continue
-        elif len(tiedostonimi) >= 3 and tiedostonimi.isalnum():
-            try:
-                tiedostopolku = os.path.dirname(__file__)
-                tiedostonimi = tiedostopolku +"/"+ tiedostonimi + ".txt"
-                with open(tiedostonimi, "w", encoding="utf-8")as file:
-                    file.write(f"Kierros {kierros}\n\n")
-                    with redirect_stdout(file):
-                        pelitilanne(pel, com, pel_laivat, com_laivat)
-                    print(f"Peli tallennettu tiedostoon {tiedostonimi}")
-            except PermissionError:
-                print(f"Ei käyttöoikeuksia kansioon {tiedostopolku}")
-            except Exception as e:
-                print(f"Jokin meni pieleen tallennuksessa. Error: {e}")
-        else:
+        if len(tiedostonimi) < 3:
+            print("Tiedostonimen tulee olla ainakin 3 merkkiä pitkä.")
             continue
-        break
+        try:
+            tiedostopolku = os.path.dirname(__file__)
+            tiedostonimi = tiedostopolku +"/"+ tiedostonimi + ".txt"
+            with open(tiedostonimi, "w", encoding="utf-8")as file:
+                file.write(f"Kierros {kierros}\n\n")
+                with redirect_stdout(file):
+                    pelitilanne(pel, com, pel_laivat, com_laivat)
+                print(f"Peli tallennettu tiedostoon {tiedostonimi}")
+                break
+        except PermissionError:
+            print(f"Ei käyttöoikeuksia kansioon {tiedostopolku}")
+        except Exception as e:
+            print(f"Jokin meni pieleen tallennuksessa. Error: {e}")
 
 def main():
     """
@@ -266,7 +265,7 @@ def main():
     pelin päätyttyä tuloste muuttuu lopputuloksen mukaan sekä tallentaa pelin pelaajan halun mukaan pelaajan nimeämään tiedostoon
     """
     clear_console()
-    kierros = 0
+    kierros = 1
     pelaajan_pelilauta = luo_pelilauta()
     tietokoneen_pelilauta = luo_pelilauta()
     saannot()
@@ -276,11 +275,10 @@ def main():
     while True:
         com_laivojen_maara = laivojen_maara(tietokoneen_pelilauta)
         pel_laivojen_maara = laivojen_maara(pelaajan_pelilauta)
-        kierros += 1
         print(f"Kierros {kierros}\n")
         print("Selite:\n  ~ = Tyhjä/Tuntematon\n  L = Laiva\n  O = Osuma\n  X = Ammus meni ohi\n")
+        pelitilanne(pelaajan_pelilauta, tietokoneen_pelilauta, pel_laivojen_maara, com_laivojen_maara)
         if com_laivojen_maara == 0 or pel_laivojen_maara == 0:
-            pelitilanne(pelaajan_pelilauta, tietokoneen_pelilauta, pel_laivojen_maara, com_laivojen_maara)
             if com_laivojen_maara == 0 and pel_laivojen_maara == 0:
                 print("Tasapeli! Olipas tasainen peli!")
             elif com_laivojen_maara == 0:
@@ -288,17 +286,17 @@ def main():
             else:
                 print(f"Hävisit pelin! Parempi onni ensi kerralla. Vastustajalle jäi vielä {com_laivojen_maara} laiva(a).")
             while True:
-                tallennus = input("Haluatko tallentaa pelin? y/n ").lower()
+                tallennus = input("Haluatko tallentaa pelin lopputuloksen? [y/n] ").lower()
                 if tallennus == "y":
                     pelin_tallennus(kierros, pelaajan_pelilauta, tietokoneen_pelilauta, pel_laivojen_maara, com_laivojen_maara)
                     break
                 elif tallennus == "n":
                     break
                 else:
-                    continue
+                    print("Virheellinen syöte. Syötä 'y' (kyllä) tai 'n' (ei).")
             break
         else:
-            pelitilanne(pelaajan_pelilauta, tietokoneen_pelilauta, pel_laivojen_maara, com_laivojen_maara)
+            kierros += 1
             kysy_ampumakohde(tietokoneen_pelilauta)
             tietokoneen_ampumakohde(pelaajan_pelilauta)
 
